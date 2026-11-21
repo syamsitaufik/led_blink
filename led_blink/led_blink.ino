@@ -35,8 +35,31 @@ uint8_t smileFrame[8][12] = {
 
 bool matrixReady = false;
 
-// Implemented in a later task.
-void handleMessage(int size);
+// Display_Controller: exact, case-sensitive command match.
+void applyCommand(const String& cmd) {
+  if (!matrixReady) {
+    return;
+  }
+  if (cmd == "HEART") {
+    matrix.renderBitmap(heartFrame, 8, 12);
+  } else if (cmd == "SMILE") {
+    matrix.renderBitmap(smileFrame, 8, 12);
+  }
+  // Any other value is ignored; the matrix content is unchanged.
+}
+
+void handleMessage(int size) {
+  String payload;
+  payload.reserve(size);
+  for (int i = 0; i < size; i++) {
+    int c = mqtt.read();
+    if (c < 0) {
+      break;
+    }
+    payload += (char)c;
+  }
+  applyCommand(payload);
+}
 
 void connectWifi() {
   while (WiFi.status() != WL_CONNECTED) {
