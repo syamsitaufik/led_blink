@@ -1,11 +1,24 @@
 #!/usr/bin/env bash
-# Build: compile, then upload. Exactly two steps, no tests, no upload retry.
+# Build: secrets check, install library, compile, then upload. No tests, no upload retry.
 FQBN="arduino:renesas_uno:unor4wifi"
 SKETCH_DIR="$(cd "$(dirname "$0")" && pwd)"
 UPLOAD_TIMEOUT=60
 
-# Step 1: compile
-echo "Step 1/2: compile"
+# Secrets check: the sketch includes arduino_secrets.h, which is git-ignored
+if [ ! -f "$SKETCH_DIR/arduino_secrets.h" ]; then
+  echo "arduino_secrets.h is missing: copy arduino_secrets.h.example to arduino_secrets.h and fill in your values" >&2
+  exit 1
+fi
+
+# Step 1: install the MQTT library
+echo "Step 1/3: install ArduinoMqttClient"
+if ! arduino-cli lib install ArduinoMqttClient; then
+  echo "library install step failed" >&2
+  exit 1
+fi
+
+# Step 2: compile
+echo "Step 2/3: compile"
 if ! arduino-cli compile --fqbn "$FQBN" "$SKETCH_DIR"; then
   echo "compile step failed" >&2
   exit 1
@@ -19,7 +32,7 @@ if [ -z "$PORT" ]; then
 fi
 
 # Step 2: upload with a 60 s timeout (portable: timeout, gtimeout, or shell watchdog)
-echo "Step 2/2: upload to $PORT"
+echo "Step 3/3: upload to $PORT"
 UPLOAD_CMD=(arduino-cli upload -p "$PORT" --fqbn "$FQBN" "$SKETCH_DIR")
 if command -v timeout >/dev/null 2>&1; then
   timeout "$UPLOAD_TIMEOUT" "${UPLOAD_CMD[@]}"
