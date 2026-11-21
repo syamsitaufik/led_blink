@@ -26,7 +26,7 @@ Add a git-ignored secrets header with a committed example, rewrite the sketch to
   - [x] 2.2 Implement `connectWifi()` and `connectMqtt()`
     - `connectWifi()` retries `WiFi.begin` until `WL_CONNECTED`, with a short delay between attempts
     - `connectMqtt()` connects once to `test.mosquitto.org:1883`, registers `handleMessage`, subscribes to `bandungsoda/kiro/led/command`, and returns a bool
-    - _Requirements: 1.1, 1.2, 2.1, 2.2, 4.1_
+    - _Requirements: 1.1, 1.2, 2.1, 2.2, 5.1_
   - [x] 2.3 Implement `handleMessage()` and `applyCommand()`
     - `handleMessage()` reads the payload into a `String` and calls `applyCommand()`
     - `applyCommand()` renders the heart for `HEART`, the smile for `SMILE`, and ignores any other payload
@@ -42,17 +42,29 @@ Add a git-ignored secrets header with a committed example, rewrite the sketch to
     - Run `arduino-cli lib install ArduinoMqttClient` before compiling
     - Update the step counters in the echo messages
     - Keep the existing compile, port detection, and 60 s upload timeout logic
-    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
+    - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [x] 4. Compile and upload
-  - [x] 4.1 Run `led_blink/build.sh` to install the library, compile, and upload
+- [x] 4. Add serial logging and reconnection to the sketch
+  - [x] 4.1 Add the Serial_Log to `led_blink.ino`
+    - `setup()` opens `Serial` at 115200 and waits up to 3 s for a monitor, then logs the Matrix status
+    - Log each Wi-Fi attempt with the SSID (not the password) and the IP once connected
+    - Log the MQTT connect result (with the error code on failure) and the subscribe result
+    - `handleMessage()` logs topic and size; `applyCommand()` logs the payload and the action taken
+    - _Requirements: 4.1, 4.2, 4.3, 4.4_
+  - [x] 4.2 Add reconnection to `loop()`
+    - Reconnect Wi-Fi when `WiFi.status()` is not `WL_CONNECTED`, and log "Wi-Fi lost"
+    - Call `connectMqtt()` when `mqttReady` is false or `mqtt.connected()` is false; wait 3 s after a failed attempt
+    - _Requirements: 1.3, 2.4, 4.5_
+
+- [x] 5. Compile and upload
+  - [x] 5.1 Run `led_blink/build.sh` to install the library, compile, and upload
     - Compile for `arduino:renesas_uno:unor4wifi` and upload to the detected board
     - Fix any compile errors in the sketch or script
-    - _Requirements: 5.1, 5.2, 5.3_
+    - _Requirements: 6.1, 6.2, 6.3_
 
 ## Notes
 
-- No test tasks, logging, or MQTT reconnection are included, per the agreed scope.
+- No test tasks are included, per the agreed scope. Task 4 (serial log and reconnection) was added after the first upload, when published commands had no visible effect on the board.
 - Each task references specific requirements for traceability.
 
 ## Task Dependency Graph
@@ -64,7 +76,8 @@ Add a git-ignored secrets header with a committed example, rewrite the sketch to
     { "id": 1, "tasks": ["1.3", "2.2"] },
     { "id": 2, "tasks": ["2.3"] },
     { "id": 3, "tasks": ["2.4"] },
-    { "id": 4, "tasks": ["4.1"] }
+    { "id": 4, "tasks": ["4.1", "4.2"] },
+    { "id": 5, "tasks": ["5.1"] }
   ]
 }
 ```

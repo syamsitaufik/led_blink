@@ -2,11 +2,12 @@
 
 ## Overview
 
-The existing led_blink sketch is changed from a self-running blinking heart into an MQTT-controlled display. At startup the Board connects to Wi-Fi, connects once to the Broker test.mosquitto.org on port 1883, and subscribes to `bandungsoda/kiro/led/command`. The payload `HEART` or `SMILE` selects the frame shown on the Matrix. Any other payload is ignored.
+The existing led_blink sketch is changed from a self-running blinking heart into an MQTT-controlled display. At startup the Board connects to Wi-Fi, connects to the Broker test.mosquitto.org on port 1883, and subscribes to `bandungsoda/kiro/led/command`. The payload `HEART` or `SMILE` selects the frame shown on the Matrix. Any other payload is ignored.
 
 Scope decisions, taken from the requirements:
 
-- No logging, no automated tests, no MQTT reconnection. The sketch connects to MQTT once. If that connection fails, the Matrix stays off and the sketch only idles.
+- The sketch prints a Serial_Log at 115200 baud (requirement 4) and reconnects to Wi-Fi and MQTT from `loop()` when a connection drops (1.3, 2.4). These were added after a first version, which connected once and stayed silent, gave no sign of why a published command had no effect.
+- No automated tests. Manual hardware verification is out of scope.
 - Wi-Fi credentials live in a git-ignored header, with a committed example file.
 - `build.sh` is extended with a library install step and a secrets check. The existing compile and upload logic (port detection, 60 s upload timeout) is kept.
 
@@ -17,7 +18,7 @@ Research summary (library APIs used):
 
 ## Architecture
 
-All logic stays in a single file, `led_blink/led_blink.ino`, split into small functions. The control flow is linear: `setup()` brings up the Matrix, Wi-Fi and MQTT in order; `loop()` only polls the MQTT client, which invokes a callback per message.
+All logic stays in a single file, `led_blink/led_blink.ino`, split into small functions. The control flow is linear: `setup()` brings up the Matrix, Wi-Fi and MQTT in order; `loop()` keeps the connections alive and polls the MQTT client, which invokes a callback per message.
 
 ```mermaid
 flowchart LR
@@ -43,7 +44,7 @@ sequenceDiagram
     M-->>S: connected
     S->>M: onMessage(handler), subscribe(topic)
     loop forever
-        Note over S: loop() calls mqtt.poll()
+        Note over S: loop() checks Wi-Fi and MQTT, reconnects if needed, then calls mqtt.poll()
         M-->>S: handler(size) on message
     end
 ```
@@ -64,14 +65,14 @@ sequenceDiagram
 
 | Element | Responsibility | Requirements |
 | --- | --- | --- |
-| `connectWifi()` | Calls `WiFi.begin(SECRET_SSID, SECRET_PASS)` and repeats until `WiFi.status() == WL_CONNECTED`, with a short delay between attempts. | 1.1, 1.2, 4.1 |
-| `connectMqtt()` | Calls `mqtt.connect("test.mosquitto.org", 1883)` once. On success, registers `onMessage(handleMessage)` and calls `mqtt.subscribe("bandungsoda/kiro/led/command")`. Returns a bool. | 2.1, 2.2 |
-| `handleMessage(int size)` | Reads `size` bytes of the payload into a `String` and passes it to `applyCommand()`. | 2.3 |
-| `applyCommand(const String&)` | Display_Controller. `"HEART"` renders Heart_Frame, `"SMILE"` renders Smile_Frame, any other value does nothing. | 3.1, 3.2, 3.3 |
-| `setup()` | `matrix.begin()`, `connectWifi()`, `connectMqtt()`. Does not render a frame. | 3.5 |
-| `loop()` | Calls `mqtt.poll()` when MQTT connected; otherwise returns. No rendering, so the last frame persists. | 3.4 |
+| `connectWifi()` | Calls `WiFi.begin(SECRET_SSID, SECRET_PASS)` and repeats until `WiFi.status() == WL_CONNECTED`, with a 2 s delay between attempts. Prints each attempt with the SSID (never the password) and the IP address once connected. | 1.1, 1.2, 4.2, 5.1 |
+| `connectMqtt()` | Calls `mqtt.connect("test.mosquitto.org", 1883)` once. On success, registers `onMessage(handleMessage)` and calls `mqtt.subscribe("bandungsoda/kiro/led/command")`. Returns a bool. Prints the connect error code or the subscribe failure. | 2.1, 2.2, 2.4, 4.3 |
+| `handleMessage(int size)` | Reads `size` bytes of the payload into a `String` and passes it to `applyCommand()`. Prints the topic and payload size first. | 2.3, 4.4 |
+| `applyCommand(const String&)` | Display_Controller. `"HEART"` renders Heart_Frame, `"SMILE"` renders Smile_Frame, any other value does nothing. Prints the payload and the action taken. | 3.1, 3.2, 3.3, 4.4 |
+| `setup()` | `Serial.begin(115200)` and a wait of up to 3 s for the serial monitor, then `matrix.begin()`, `connectWifi()`, `connectMqtt()`. Does not render a frame. | 3.5, 4.1 |
+| `loop()` | If Wi-Fi dropped, prints "Wi-Fi lost" and calls `connectWifi()`. If MQTT is not ready or `mqtt.connected()` is false, calls `connectMqtt()`; on failure waits 3 s and returns. Otherwise calls `mqtt.poll()`. No rendering, so the last frame persists. | 1.3, 2.4, 3.4, 4.5 |
 
-Globals: `ArduinoLEDMatrix matrix`, `WiFiClient wifiClient`, `MqttClient mqtt(wifiClient)`, `bool mqttReady`, `heartFrame[8][12]` and `smileFrame[8][12]`.
+Globals: `ArduinoLEDMatrix matrix`, `WiFiClient wifiClient`, `MqttClient mqtt(wifiClient)`, `bool mqttReady`, `bool matrixReady`, `heartFrame[8][12]` and `smileFrame[8][12]`.
 
 Libraries included: `WiFiS3.h`, `ArduinoMqttClient.h`, `Arduino_LED_Matrix.h`, `arduino_secrets.h`.
 
@@ -79,10 +80,10 @@ Libraries included: `WiFiS3.h`, `ArduinoMqttClient.h`, `Arduino_LED_Matrix.h`, `
 
 The script runs these steps in order, exiting with non-zero status on any failure:
 
-1. Secrets check: if `$SKETCH_DIR/arduino_secrets.h` does not exist, print to stderr a message naming `arduino_secrets.h.example` (copy it to `arduino_secrets.h` and fill in values) and `exit 1`. (5.4)
-2. `arduino-cli lib install ArduinoMqttClient`. (5.1)
-3. `arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi "$SKETCH_DIR"`. Failure exits 1. (5.2, 5.5)
-4. Existing port detection and `arduino-cli upload` with the 60 s timeout. Failure exits 1. (5.3, 5.5)
+1. Secrets check: if `$SKETCH_DIR/arduino_secrets.h` does not exist, print to stderr a message naming `arduino_secrets.h.example` (copy it to `arduino_secrets.h` and fill in values) and `exit 1`. (6.4)
+2. `arduino-cli lib install ArduinoMqttClient`. (6.1)
+3. `arduino-cli compile --fqbn arduino:renesas_uno:unor4wifi "$SKETCH_DIR"`. Failure exits 1. (6.2, 6.5)
+4. Existing port detection and `arduino-cli upload` with the 60 s timeout. Failure exits 1. (6.3, 6.5)
 
 Step counters in the echo messages change from "1/2" and "2/2" to cover the new steps. The rest of the script is unchanged.
 
@@ -110,14 +111,15 @@ Constants: broker host `test.mosquitto.org`, port `1883`, topic `bandungsoda/kir
 ## Error Handling
 
 - Wi-Fi connect failure: `connectWifi()` retries until it succeeds (1.2). The Matrix stays off meanwhile.
-- MQTT connect failure: `connectMqtt()` returns false, `mqttReady` stays false, and `loop()` idles. There is no retry or reconnection (out of scope).
+- Wi-Fi lost after startup: `loop()` prints "Wi-Fi lost", sets `mqttReady` false and calls `connectWifi()` (1.3, 4.5).
+- MQTT connect failure or lost connection: `connectMqtt()` returns false and prints the error code. `loop()` waits 3 s and tries again, and re-subscribes after a successful connect (2.4, 4.3).
 - Matrix init failure: `matrix.begin()` returning 0 leaves the display unusable, so `applyCommand()` does nothing when the Matrix is not ready (same guard as the current sketch).
 - Unknown payload: ignored, Matrix content unchanged (3.3).
-- Missing secrets file: caught by `build.sh` before compiling (5.4). Without it, the compiler would also fail on the missing include.
-- Compile or upload failure: `build.sh` exits 1 (5.5).
+- Missing secrets file: caught by `build.sh` before compiling (6.4). Without it, the compiler would also fail on the missing include.
+- Compile or upload failure: `build.sh` exits 1 (6.5).
 
 ## Testing Strategy
 
-Per the user's scope, there are no automated tests and no logging. Property-based testing does not apply: the sketch is hardware and network glue with a two-value command switch, so there is no meaningful input space to quantify over, and a Correctness Properties section is omitted.
+Per the user's scope, there are no automated tests. Property-based testing does not apply: the sketch is hardware and network glue with a two-value command switch, so there is no meaningful input space to quantify over, and a Correctness Properties section is omitted.
 
-Verification is limited to what `build.sh` does: it confirms the sketch compiles for `arduino:renesas_uno:unor4wifi` and uploads. Manual hardware verification is out of scope.
+Verification by tooling is limited to what `build.sh` does: it confirms the sketch compiles for `arduino:renesas_uno:unor4wifi` and uploads. Behaviour on the Board is observed through the Serial_Log in a serial monitor (`arduino-cli monitor -p <port> -c baudrate=115200`). A formal manual hardware verification procedure is out of scope.
