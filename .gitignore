@@ -1,0 +1,2 @@
+# Wi-Fi / MQTT credentials (copy arduino_secrets.h.example to create)
+led_blink/arduino_secrets.h
