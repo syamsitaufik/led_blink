@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="460" viewBox="0 0 900 460" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 z" fill="#333"/>
+    </marker>
+  </defs>
+  <rect width="900" height="460" fill="#fff"/>
+  <text x="450" y="30" text-anchor="middle" font-size="20" font-weight="bold">MQTT LED Matrix Control: Architecture</text>
+
+  <!-- Publisher -->
+  <rect x="30" y="150" width="170" height="110" rx="8" fill="#e3f2fd" stroke="#1565c0" stroke-width="2"/>
+  <text x="115" y="185" text-anchor="middle" font-size="16" font-weight="bold">Publisher</text>
+  <text x="115" y="210" text-anchor="middle" font-size="13">Postman / mosquitto_pub</text>
+  <text x="115" y="232" text-anchor="middle" font-size="13">payload: HEART | SMILE</text>
+
+  <!-- Broker -->
+  <rect x="300" y="150" width="200" height="110" rx="8" fill="#fff3e0" stroke="#e65100" stroke-width="2"/>
+  <text x="400" y="185" text-anchor="middle" font-size="16" font-weight="bold">MQTT Broker</text>
+  <text x="400" y="210" text-anchor="middle" font-size="13">test.mosquitto.org:1883</text>
+  <text x="400" y="232" text-anchor="middle" font-size="12">bandungsoda/kiro/led/command</text>
+
+  <!-- Board -->
+  <rect x="600" y="60" width="270" height="340" rx="8" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2"/>
+  <text x="735" y="88" text-anchor="middle" font-size="16" font-weight="bold">Arduino UNO R4 WiFi</text>
+  <rect x="620" y="105" width="230" height="50" rx="6" fill="#fff" stroke="#2e7d32"/>
+  <text x="735" y="127" text-anchor="middle" font-size="13" font-weight="bold">WiFiS3 + ArduinoMqttClient</text>
+  <text x="735" y="145" text-anchor="middle" font-size="12">connectWifi() / connectMqtt()</text>
+  <rect x="620" y="175" width="230" height="50" rx="6" fill="#fff" stroke="#2e7d32"/>
+  <text x="735" y="197" text-anchor="middle" font-size="13" font-weight="bold">handleMessage()</text>
+  <text x="735" y="215" text-anchor="middle" font-size="12">read payload, log to Serial</text>
+  <rect x="620" y="245" width="230" height="50" rx="6" fill="#fff" stroke="#2e7d32"/>
+  <text x="735" y="267" text-anchor="middle" font-size="13" font-weight="bold">applyCommand()</text>
+  <text x="735" y="285" text-anchor="middle" font-size="12">HEART / SMILE / ignore</text>
+  <rect x="620" y="315" width="230" height="65" rx="6" fill="#fff" stroke="#2e7d32"/>
+  <text x="735" y="337" text-anchor="middle" font-size="13" font-weight="bold">LED Matrix (8x12)</text>
+  <text x="735" y="355" text-anchor="middle" font-size="12">heartFrame / smileFrame</text>
+  <text x="735" y="371" text-anchor="middle" font-size="12">last frame persists</text>
+  <line x1="735" y1="155" x2="735" y2="173" stroke="#333" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="735" y1="225" x2="735" y2="243" stroke="#333" stroke-width="2" marker-end="url(#a)"/>
+  <line x1="735" y1="295" x2="735" y2="313" stroke="#333" stroke-width="2" marker-end="url(#a)"/>
+
+  <!-- Arrows -->
+  <line x1="200" y1="205" x2="298" y2="205" stroke="#333" stroke-width="2" marker-end="url(#a)"/>
+  <text x="249" y="195" text-anchor="middle" font-size="12">publish</text>
+  <line x1="500" y1="205" x2="598" y2="205" stroke="#333" stroke-width="2" marker-end="url(#a)"/>
+  <text x="549" y="195" text-anchor="middle" font-size="12">deliver</text>
+  <text x="549" y="222" text-anchor="middle" font-size="11" fill="#555">(Wi-Fi)</text>
+
+  <!-- Build -->
+  <rect x="30" y="320" width="440" height="100" rx="8" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="2"/>
+  <text x="250" y="348" text-anchor="middle" font-size="16" font-weight="bold">Developer machine</text>
+  <text x="250" y="372" text-anchor="middle" font-size="13">build.sh: arduino-cli lib install, compile, upload (USB)</text>
+  <text x="250" y="392" text-anchor="middle" font-size="13">arduino_secrets.h (git-ignored): SECRET_SSID, SECRET_PASS</text>
+  <line x1="470" y1="370" x2="598" y2="370" stroke="#6a1b9a" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#a)"/>
+  <text x="534" y="360" text-anchor="middle" font-size="12" fill="#6a1b9a">USB upload</text>
+  <text x="250" y="446" text-anchor="middle" font-size="12" fill="#555">Serial monitor (115200 baud) shows connection and message logs</text>
+</svg>
