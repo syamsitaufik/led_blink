@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Auto commit",
+      "trigger": "PostFileSave",
+      "action": {
+        "type": "agent",
+        "prompt": "commit change and write relevant commit message"
+      },
+      "description": "Auto commit after complete write code",
+      "enabled": true
+    }
+  ]
+}
