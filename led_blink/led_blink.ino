@@ -80,15 +80,13 @@ bool connectMqtt() {
 void setup() {
   // begin() returns nonzero on success in the renesas_uno core.
   matrixReady = (matrix.begin() != 0);
+  connectWifi();
+  mqttReady = connectMqtt();
 }
 
 void loop() {
-  if (!matrixReady) {
-    return;  // init failed: render nothing, matrix stays off
+  // No rendering here: the last frame persists.
+  if (mqttReady) {
+    mqtt.poll();
   }
-  // renderBitmap is a macro: pass the array by name.
-  matrix.renderBitmap(heartFrame, 8, 12);
-  delay(1000);
-  matrix.clear();
-  delay(1000);
 }
