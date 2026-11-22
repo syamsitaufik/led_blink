@@ -227,6 +227,133 @@ The code was now better than the spec described. I only noticed when I went look
 
 What I would do differently: for any project that runs on hardware, put logging in the first spec. A device with no screen needs some way to tell you what it is doing.
 
+## The prompts I used
+
+Here are the prompts I gave Kiro, in order, lightly cleaned up for typos. You can reuse them as a script for your own build. I grouped them by phase and noted what each one produced, using the commits in the repo.
+
+### Phase 0: the warm-up, a blinking heart
+
+Before MQTT, I started with the simplest possible sketch: a heart that blinks on the built-in LED matrix. These are the prompts, word for word.
+
+> Develop an Arduino application to display a blinking heart animation on the built-in 12×8 LED Matrix of the Arduino UNO R4 WiFi. The heart should appear for 1 second, disappear for 1 second, and repeat continuously.
+>
+> Do not perform testing. Please upload compile code in arduino.
+
+Kiro asked whether this was a feature or a bug fix, then wrote the requirements: the blink timing, the compile and upload steps, and an explicit "no automated tests" rule that came straight from my second sentence.
+
+> Create the design for blinking-heart-led-matrix
+
+This produced the design: one sketch file, the heart stored as a 12×8 bitmap, and a loop of show, wait 1 second, clear, wait 1 second.
+
+> Create the tasks for blinking-heart-led-matrix
+
+This produced the task list: write the sketch, write a build script, then compile and upload.
+
+> Run all required tasks
+
+Kiro queued the remaining tasks and ran them one at a time. The first compile failed, because `renderBitmap` needs a non-const array. Kiro removed `const` from the heart frame, recompiled and uploaded.
+
+Notice how much the spec did for me. Each prompt is one line, because the previous document already held the detail.
+
+### Phase 1: write the spec
+
+The first prompts created the requirements, design and task list for the MQTT feature. They became three commits: requirements, design and tasks.
+
+This is the prompt that started the MQTT feature, lightly cleaned up. Kiro first asked whether this was a new feature or a bug fix, then whether to start from requirements or from the design.
+
+> Modify the current code. The Arduino must connect to a Wi-Fi network and an MQTT broker, subscribe to the topic `bandungsoda/kiro/led/command`, and control its built-in 12×8 LED matrix based on received messages. The application must support two MQTT commands:
+> - `HEART`: display a heart
+> - `SMILE`: display a smiley face
+>
+> The entire development process, including requirements, design, implementation, compilation, and firmware upload, must use Kiro and Arduino CLI without the Arduino IDE.
+>
+> Exclude MQTT connection handling, automatic reconnection, and manual hardware verification.
+>
+> Keep Wi-Fi credentials outside version-controlled source files.
+>
+> Please keep it simple. No logging. No testing. Just connect to the test.mosquitto broker.
+
+Kiro wrote the requirements and stopped. It chose the `ArduinoMqttClient` library on its own and said so, and it kept a Wi-Fi retry loop at startup, which it explained is separate from the MQTT reconnection I had excluded. Then I approved each document with a short prompt:
+
+> proceed to design
+
+> please write task
+
+Kiro asked for a review after each document, so the whole spec took three prompts after the first one.
+
+> Run all required tasks
+
+This one runs the task list, the same as in the warm-up.
+
+Look at the constraints in the first prompt. "No logging" and "exclude reconnection" are the same two scope cuts that I later reversed (see *Where the spec and the code disagreed*). If your device has no screen, leave those two lines out.
+
+### Phase 2: build it
+
+> Run all required tasks
+
+Kiro worked through the task list, one sub-agent per task. It produced six commits in about four minutes: the secrets example file, the `.gitignore` entry, the build script changes, the connection helpers, message handling, and `setup()` and `loop()`.
+
+### Phase 3: test, then debug
+
+> What is the format to publish data to the Arduino board?
+
+Kiro answered with the broker, port, topic and the two payloads, plus a `mosquitto_pub` example.
+
+> I have changed the SSID and password, please recompile the code again
+
+This rebuilt and uploaded the sketch with the real credentials.
+
+> Nothing happens when I publish via Postman, please add log via serial
+
+This added the serial log and the reconnect logic. It is the turning point of the story above.
+
+> Recompile and upload the code to the Arduino again
+
+> Commit the code with a relevant commit message
+
+### Phase 4: document
+
+> Add an image that illustrates the architecture of this project
+
+This produced `docs/architecture.svg` and a PNG copy.
+
+> Add also a README for this project and include this image in the README. Make it user-friendly and fun for the user to read.
+
+> Yes, please commit
+
+### Phase 5: review the process
+
+> Please analyze all prompts in the session according to the git commit history
+
+Kiro mapped the commits to five phases and noticed the long gap between the first upload and the first real test.
+
+> What is "verify on hardware"?
+
+> Is adding the serial log written in any design or requirements?
+
+This was the question that exposed the drift: the spec said "no logging", but the code logged.
+
+> Please update the spec to match the code
+
+> Please commit the current changes
+
+### Phase 6: write about it
+
+> I want to make a tutorial in Substack for this repo. Please suggest the content.
+
+> Draft the full post in Markdown
+
+> Commit the first draft Substack post
+
+> Please add all the relevant Kiro prompts from the whole session history to the Substack post.
+
+### What I learned about prompting
+
+- **Short prompts worked** because the spec already held the detail. "Run all required tasks" is a single line, and the task list did the rest.
+- **Describe the symptom, not the fix.** "Nothing happens when I publish" would have been enough. I also asked for the serial log, which was the right call.
+- **Ask Kiro to check its own work against the spec.** The question about where logging was written down caught a mismatch I would have missed.
+- **Ask for a commit at the end of each step.** The history became the outline for this post.
+
 ## Ideas to take it further
 
 - Add more commands: `STAR`, `ARROW`, or a blank frame to turn the matrix off.
